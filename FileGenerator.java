@@ -23,16 +23,22 @@ public class FileGenerator {
     }
 
     private byte[] getFileSignature(String extension) {
-        // Initializing the map inside the method
+        // Map initialized inside the method to avoid unnecessary memory usage
         Map<String, byte[]> fileSignatures = Map.of(
-            "png", new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A},
-            "jpg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF},
-            "jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF},
-            "gif", new byte[]{'G', 'I', 'F', '8'},
-            "pdf", "%PDF-1.4\n%".getBytes(),
-            "zip", new byte[]{'P', 'K', 0x03, 0x04},
-            "mp3", new byte[]{'I', 'D', '3'},
-            "exe", new byte[]{'M', 'Z'}
+            "htm", "<!DOCTYPE html>".getBytes(),
+            "doc", new byte[]{(byte) 0xD0, (byte) 0xCF, (byte) 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, (byte) 0x1A, (byte) 0xE1}, // DOC Header
+            "docx", new byte[]{'P', 'K', 0x03, 0x04}, // DOCX (ZIP format)
+            "tiff", new byte[]{'M', 'M', 0x00, 0x2A}, // TIFF Header
+            "jpg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}, // JPG Header
+            "msg", new byte[]{(byte) 0xD0, (byte) 0xCF, (byte) 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, (byte) 0x1A, (byte) 0xE1}, // MSG (same as DOC)
+            "pdf", "%PDF-1.4\n%".getBytes(), // PDF Header
+            "ppt", new byte[]{(byte) 0xD0, (byte) 0xCF, (byte) 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, (byte) 0x1A, (byte) 0xE1}, // PPT Header
+            "rtf", "{\\rtf1".getBytes(), // RTF Header
+            "txt", new byte[0], // Empty for text files
+            "xls", new byte[]{(byte) 0xD0, (byte) 0xCF, (byte) 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, (byte) 0x1A, (byte) 0xE1}, // XLS Header
+            "xlsx", new byte[]{'P', 'K', 0x03, 0x04}, // XLSX (ZIP format)
+            "zip", new byte[]{'P', 'K', 0x03, 0x04}, // ZIP Header
+            "mht", "<!DOCTYPE html>".getBytes() // MHT (HTML-like)
         );
 
         return fileSignatures.getOrDefault(extension, new byte[0]); // Default to empty content
@@ -41,9 +47,11 @@ public class FileGenerator {
     public static void main(String[] args) {
         try {
             FileGenerator generator = new FileGenerator();
-            generator.createEmptyFile("example.pdf");
-            generator.createEmptyFile("example.png");
-            generator.createEmptyFile("example.txt");
+            generator.createEmptyFile("test.pdf");
+            generator.createEmptyFile("test.doc");
+            generator.createEmptyFile("test.xlsx");
+            generator.createEmptyFile("test.msg");
+            generator.createEmptyFile("test.unknown"); // Should create an empty file
         } catch (IOException e) {
             e.printStackTrace();
         }
