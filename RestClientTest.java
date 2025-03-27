@@ -8,8 +8,9 @@ import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.springframework.web.client.RestClient;
+import java.util.function.Function;
 
-@ExtendWith(MockitoExtension.class) // Enables Mockito for JUnit 5
+@ExtendWith(MockitoExtension.class) // Enable Mockito
 class ExternalServiceClientTest {
 
     @Mock
@@ -25,23 +26,23 @@ class ExternalServiceClientTest {
     private RestClient.ResponseSpec responseSpec;
 
     @InjectMocks
-    private ExternalServiceClient externalServiceClient; // Inject Mocked RestClient
+    private ExternalServiceClient externalServiceClient; // Inject mock RestClient
 
     @Test
     void testFetchData() {
         // Mock API Response
         ApiResponse mockResponse = new ApiResponse("Success");
 
-        // Stubbing method calls step-by-step
+        // Fix: Correctly mock RestClient method chaining
         when(restClient.get()).thenReturn(requestHeadersUriSpec);
-        when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersUriSpec.uri(any(Function.class))).thenReturn(requestHeadersSpec); // Fix here
         when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.body(ApiResponse.class)).thenReturn(mockResponse);
 
         // Call method
         ApiResponse response = externalServiceClient.fetchData("testValue");
 
-        // Verify response
+        // Assertions
         assertNotNull(response);
         assertEquals("Success", response.getMessage());
     }
