@@ -1,34 +1,39 @@
+package com.example.util;
+
 import com.squareup.javapoet.*;
 import org.junit.jupiter.api.Test;
-import org.mockito.*;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
+@SpringBootTest // Required to load the Spring context if you're testing Spring components
+@ExtendWith(MockitoExtension.class) // Required to use Mockito annotations in JUnit 5
 public class TestGenerator {
 
-    // This method will generate unit tests dynamically for any Java class
     public static void generateUnitTestsForClass(String className, List<ClassAnalyzer.MethodData> methods, List<ClassAnalyzer.FieldData> fields) throws IOException {
-        // Create the test class with the same name as the class being tested (e.g., YourClassTest)
         TypeSpec.Builder testClassBuilder = TypeSpec.classBuilder(className + "Test")
                 .addModifiers(javax.lang.model.element.Modifier.PUBLIC)
                 .addAnnotation(SpringBootTest.class)
-                .addAnnotation(org.junit.jupiter.api.extension.ExtendWith.class)
+                .addAnnotation(ExtendWith.class)
                 .addField(FieldSpec.builder(MockitoAnnotations.class, "mockito", javax.lang.model.element.Modifier.PRIVATE).build());
 
-        // Dynamically mock the dependencies (fields in the original class)
+        // Dynamically mock dependencies
         fields.forEach(field -> {
             FieldSpec mockField = FieldSpec.builder(ClassName.get(field.fieldType), field.fieldName, javax.lang.model.element.Modifier.PRIVATE, javax.lang.model.element.Modifier.MOCK)
                     .build();
             testClassBuilder.addField(mockField);
         });
 
-        // Add a field for the class being tested
+        // Add the class under test
         FieldSpec classField = FieldSpec.builder(ClassName.get("com.example", className), "classUnderTest", javax.lang.model.element.Modifier.PRIVATE)
                 .addAnnotation(Autowired.class)
                 .build();
@@ -48,60 +53,34 @@ public class TestGenerator {
 
             CodeBlock.Builder methodArgs = CodeBlock.builder();
 
-            // Mock method arguments dynamically
+            // Add mock parameters dynamically
             for (int i = 0; i < parameters.size(); i++) {
                 if (i > 0) {
                     methodArgs.add(", ");
                 }
-                methodArgs.add("$L", "mockParam" + i);  // Example: Create mock params dynamically
+                methodArgs.add("$L", "mockParam" + i);
             }
 
-            // Generate the test method dynamically
             MethodSpec.Builder testMethodBuilder = MethodSpec.methodBuilder("test" + capitalize(methodName))
                     .addModifiers(javax.lang.model.element.Modifier.PUBLIC)
-                    .addAnnotation(Test.class)
+                    .addAnnotation(Test.class) // JUnit 5 annotation
+                    .addCode(methodArgs.build())
                     .returns(void.class)
-                    .addStatement("System.out.println(\"Testing " + methodName + "\")");
+                    .addStatement("$L", methodName);
 
-            // Handle void methods
-            if ("void".equals(returnType)) {
-                testMethodBuilder.addStatement("classUnderTest.$L($L)", methodName, methodArgs.build());
-                testMethodBuilder.addStatement("assertTrue(true)");  // Placeholder for void methods
-            } else {
-                // For non-void methods, assert the result
-                testMethodBuilder.addStatement("$T result = classUnderTest.$L($L)", ClassName.get(returnType), methodName, methodArgs.build());
-                testMethodBuilder.addStatement("assertNotNull(result)");  // Assert that result is not null
-            }
-
-            // Add the test method to the test class
             testClassBuilder.addMethod(testMethodBuilder.build());
         }
 
-        // Build the test class
-        TypeSpec testClass = testClassBuilder.build();
-        JavaFile javaFile = JavaFile.builder("com.example.tests", testClass)
+        // Build the generated class
+        JavaFile javaFile = JavaFile.builder("com.example.generated", testClassBuilder.build())
                 .build();
 
         // Write the generated test class to the file system
         javaFile.writeTo(Paths.get("./src/test/java"));
     }
 
-    // Helper method to capitalize the first letter of a method name
-    private static String capitalize(String methodName) {
-        return methodName.substring(0, 1).toUpperCase() + methodName.substring(1);
-    }
-
-    public static void main(String[] args) throws IOException {
-        // Example usage: Analyze the class dynamically and generate tests for any class
-
-        // Dynamically analyze a class (e.g., YourClass)
-        String classFilePath = "path/to/YourClass.class";
-        Map<String, Object> classData = ClassAnalyzer.analyzeClass(classFilePath);
-
-        List<ClassAnalyzer.MethodData> methods = (List<ClassAnalyzer.MethodData>) classData.get("methods");
-        List<ClassAnalyzer.FieldData> fields = (List<ClassAnalyzer.FieldData>) classData.get("fields");
-
-        // Generate unit tests dynamically based on the analyzed class
-        generateUnitTestsForClass("YourClass", methods, fields);
+    private static String capitalize(String name) {
+        if (name == null || name.isEmpty()) return name;
+        return name.substring(0, 1).toUpperCase() + name.substring(1);
     }
 }
