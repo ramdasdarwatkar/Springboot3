@@ -72,27 +72,20 @@ public class TestGenerator {
                 .forEach(mc -> generateMockSetup(code, mc));
 
         code.addStatement("// Act");
-        if (exceptionMethods.contains(methodName)) {
-            code.beginControlFlow("try");
-            code.addStatement("Object result = $L.$L()", toLowerFirst(className), methodName);
-            code.addStatement("assertNotNull(result)");
-            code.nextControlFlow("catch (Exception e)");
-            code.addStatement("assertNotNull(e)");
-            code.endControlFlow();
-        } else {
-            code.addStatement("Object result = $L.$L()", toLowerFirst(className), methodName);
-            code.addStatement("// Assert");
-            code.addStatement("assertNotNull(result)");
-        }
+        code.addStatement("Object result = $L.$L()", toLowerFirst(className), methodName);
+        
+        code.addStatement("// Assert");
+        code.addStatement("assertNotNull(result)");
 
         return testMethod.addCode(code.build()).build();
     }
 
     private static void generateMockSetup(CodeBlock.Builder code, MethodCallInfo call) {
         if (!call.scope.isEmpty() && !call.scope.equals("this")) {
+            String argsPlaceholder = call.args.isEmpty() ? "" : call.args;
             code.addStatement("when($L.$L($L)).thenReturn($T.mock($T.class))",
                     toFieldName(call.scope), call.methodName,
-                    call.args.isEmpty() ? "" : call.args,
+                    argsPlaceholder,
                     ClassName.bestGuess(call.returnType), ClassName.bestGuess(call.returnType));
         }
     }
