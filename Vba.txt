@@ -1,17 +1,24 @@
-Sub GenerateSQLInserts()
+Sub GenerateResourceRoleSQL()
     Dim ws As Worksheet
-    Set ws = ThisWorkbook.Sheets(1) ' Change if your data is in another sheet
+    Set ws = ThisWorkbook.Sheets(1) ' Update if your data is on a different sheet
 
-    Dim lastRow As Long, lastCol As Long
-    Dim row As Long, col As Long
-    Dim adgroupID As Variant
+    Dim startRow As Long, currentRow As Long
+    Dim sequenceNumber As Long
+    Dim adGroupRoleId As Variant
+    Dim resourceRange As Range
     Dim resourceID As Variant
     Dim accessText As String
     Dim accessID As Integer
     Dim sql As String
     Dim output As String
+    Dim col As Long, i As Long
 
-    ' Define mapping
+    ' Static values
+    Const initialUser As String = "'system_user'"
+    Const currentTimestamp As String = "CURRENT_TIMESTAMP"
+    sequenceNumber = 529
+
+    ' Mapping dictionary
     Dim accessMap As Object
     Set accessMap = CreateObject("Scripting.Dictionary")
     accessMap.Add "Read", 1
@@ -19,40 +26,44 @@ Sub GenerateSQLInserts()
     accessMap.Add "Admin", 3
     accessMap.Add "No Access", 4
 
-    ' Get dimensions
-    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
-    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+    ' Get Resource IDs from AA4:AA8
+    Set resourceRange = ws.Range("AA4:AA8")
 
-    ' Start from third row (first = header, second = resource ids)
-    For row = 3 To lastRow
-        adgroupID = ws.Cells(row, 1).Value
+    ' Loop through each AdGroupRoleID starting from B5
+    startRow = 5
+    currentRow = startRow
 
-        If Not IsEmpty(adgroupID) Then
-            For col = 2 To lastCol
-                resourceID = ws.Cells(2, col).Value
-                accessText = Trim(ws.Cells(row, col).Value)
+    Do While ws.Cells(currentRow, 2).Value <> ""
+        adGroupRoleId = ws.Cells(currentRow, 2).Value
 
-                If accessMap.exists(accessText) Then
-                    accessID = accessMap(accessText)
-                    sql = "INSERT INTO RESOURCES VALUES (" & resourceID & ", " & accessID & ", " & adgroupID & ");"
-                    output = output & sql & vbCrLf
-                End If
-            Next col
-        End If
-    Next row
+        ' Loop through the 5 resource columns next to B (C to G)
+        For i = 0 To resourceRange.Rows.Count - 1
+            resourceID = resourceRange.Cells(i + 1, 1).Value
+            accessText = Trim(ws.Cells(currentRow, 3 + i).Value)
 
-    ' Output result to new sheet
+            If accessMap.exists(accessText) Then
+                accessID = accessMap(accessText)
+                sql = "INSERT INTO resourcesroles VALUES (" & sequenceNumber & ", " & adGroupRoleId & ", " & resourceID & ", " & accessID & ", " & initialUser & ", " & currentTimestamp & ");"
+                output = output & sql & vbCrLf
+                sequenceNumber = sequenceNumber + 1
+            End If
+        Next i
+
+        currentRow = currentRow + 1
+    Loop
+
+    ' Output to new sheet
     Dim outSheet As Worksheet
     Set outSheet = ThisWorkbook.Sheets.Add
     outSheet.Name = "SQL_Output"
+
     outSheet.Cells(1, 1).Value = "Generated SQL"
 
-    Dim i As Long
     Dim lines() As String
     lines = Split(output, vbCrLf)
     For i = 0 To UBound(lines) - 1
         outSheet.Cells(i + 2, 1).Value = lines(i)
     Next i
 
-    MsgBox "SQL queries generated successfully!", vbInformation
+    MsgBox "SQL insert statements generated!", vbInformation
 End Sub
