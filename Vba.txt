@@ -1,0 +1,58 @@
+Sub GenerateSQLInserts()
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(1) ' Change if your data is in another sheet
+
+    Dim lastRow As Long, lastCol As Long
+    Dim row As Long, col As Long
+    Dim adgroupID As Variant
+    Dim resourceID As Variant
+    Dim accessText As String
+    Dim accessID As Integer
+    Dim sql As String
+    Dim output As String
+
+    ' Define mapping
+    Dim accessMap As Object
+    Set accessMap = CreateObject("Scripting.Dictionary")
+    accessMap.Add "Read", 1
+    accessMap.Add "Write", 2
+    accessMap.Add "Admin", 3
+    accessMap.Add "No Access", 4
+
+    ' Get dimensions
+    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+
+    ' Start from third row (first = header, second = resource ids)
+    For row = 3 To lastRow
+        adgroupID = ws.Cells(row, 1).Value
+
+        If Not IsEmpty(adgroupID) Then
+            For col = 2 To lastCol
+                resourceID = ws.Cells(2, col).Value
+                accessText = Trim(ws.Cells(row, col).Value)
+
+                If accessMap.exists(accessText) Then
+                    accessID = accessMap(accessText)
+                    sql = "INSERT INTO RESOURCES VALUES (" & resourceID & ", " & accessID & ", " & adgroupID & ");"
+                    output = output & sql & vbCrLf
+                End If
+            Next col
+        End If
+    Next row
+
+    ' Output result to new sheet
+    Dim outSheet As Worksheet
+    Set outSheet = ThisWorkbook.Sheets.Add
+    outSheet.Name = "SQL_Output"
+    outSheet.Cells(1, 1).Value = "Generated SQL"
+
+    Dim i As Long
+    Dim lines() As String
+    lines = Split(output, vbCrLf)
+    For i = 0 To UBound(lines) - 1
+        outSheet.Cells(i + 2, 1).Value = lines(i)
+    Next i
+
+    MsgBox "SQL queries generated successfully!", vbInformation
+End Sub
