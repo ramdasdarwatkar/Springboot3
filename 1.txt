@@ -1,0 +1,86 @@
+Sub GenerateResourceRoleSQL()
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(1) ' Update this if your sheet is different
+
+    Dim startRow As Long, currentRow As Long
+    Dim sequenceNumber As Long
+    Dim adGroupRoleId As Variant
+    Dim resourceRange As Range
+    Dim resourceID As Variant
+    Dim accessText As String
+    Dim accessID As Integer
+    Dim sql As String
+    Dim output As String
+    Dim colOffset As Long, i As Long, outputCount As Long
+
+    ' Static values
+    Const initialUser As String = "'system_user'"
+    Const currentTimestamp As String = "CURRENT_TIMESTAMP"
+    sequenceNumber = 529
+
+    ' Create access map (case-insensitive)
+    Dim accessMap As Object
+    Set accessMap = CreateObject("Scripting.Dictionary")
+    accessMap.CompareMode = 1 ' TextCompare
+    accessMap.Add "Read", 1
+    accessMap.Add "Write", 2
+    accessMap.Add "Admin", 3
+    accessMap.Add "No Access", 4
+
+    ' Get 5 Resource IDs from AA4:AA8
+    Set resourceRange = ws.Range("AA4:AA8")
+    If resourceRange.Cells.Count <> 5 Then
+        MsgBox "Expected exactly 5 resource IDs in range AA4:AA8.", vbCritical
+        Exit Sub
+    End If
+
+    ' Loop through each AdGroupRoleId starting from B5
+    startRow = 5
+    currentRow = startRow
+    outputCount = 0
+
+    Do While Trim(ws.Cells(currentRow, 2).Value) <> ""
+        adGroupRoleId = ws.Cells(currentRow, 2).Value
+
+        ' Loop across 5 access values in columns C to G
+        For i = 0 To 4
+            resourceID = resourceRange.Cells(i + 1, 1).Value
+            accessText = Trim(ws.Cells(currentRow, 3 + i).Value) ' Columns C to G = 3 to 7
+
+            If accessMap.exists(accessText) Then
+                accessID = accessMap(accessText)
+                sql = "INSERT INTO resourcesroles VALUES (" & sequenceNumber & ", " & adGroupRoleId & ", " & resourceID & ", " & accessID & ", " & initialUser & ", " & currentTimestamp & ");"
+                output = output & sql & vbCrLf
+                Debug.Print sql ' Output to Immediate window
+                sequenceNumber = sequenceNumber + 1
+                outputCount = outputCount + 1
+            Else
+                Debug.Print "Unrecognized access level: """ & accessText & """ at row " & currentRow
+            End If
+        Next i
+
+        currentRow = currentRow + 1
+    Loop
+
+    ' Output to new sheet
+    If outputCount = 0 Then
+        MsgBox "No SQL statements generated. Please check your data layout and access values.", vbExclamation
+        Exit Sub
+    End If
+
+    Dim outSheet As Worksheet
+    Set outSheet = ThisWorkbook.Sheets.Add
+    outSheet.Name = "SQL_Output"
+
+    outSheet.Cells(1, 1).Value = "Generated SQL Statements"
+
+    Dim lines() As String
+    lines = Split(output, vbCrLf)
+    For i = 0 To UBound(lines) - 1
+        If Trim(lines(i)) <> "" Then
+            outSheet.Cells(i + 2, 1).Value = lines(i)
+        End If
+    Next i
+
+    MsgBox outputCount & " SQL statements generated successfully!", vbInformation
+End Sub
