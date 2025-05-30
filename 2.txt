@@ -1,0 +1,79 @@
+Sub GenerateResourceRoleSQL()
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Sheets(1) ' Change if your data is in a different sheet
+
+    Dim sequenceNumber As Long
+    Dim adGroupRoleId As Variant
+    Dim resourceID As Variant
+    Dim accessText As String
+    Dim accessID As Integer
+    Dim sql As String
+    Dim output As String
+    Dim colIndex As Long
+    Dim currentRow As Long
+    Dim outputCount As Long
+
+    ' Constants
+    Const initialUser As String = "'system_user'"
+    Const currentTimestamp As String = "CURRENT_TIMESTAMP"
+    sequenceNumber = 529
+
+    ' Access text to ID mapping
+    Dim accessMap As Object
+    Set accessMap = CreateObject("Scripting.Dictionary")
+    accessMap.CompareMode = 1 ' Case-insensitive
+    accessMap.Add "Read", 1
+    accessMap.Add "Write", 2
+    accessMap.Add "Admin", 3
+    accessMap.Add "No Access", 4
+
+    ' Loop through each row with AdGroupRoleId starting from row 5
+    currentRow = 5
+    outputCount = 0
+
+    Do While Trim(ws.Cells(currentRow, 2).Value) <> "" ' Column B = 2
+        adGroupRoleId = ws.Cells(currentRow, 2).Value
+
+        ' Loop through columns AA (27) to AE (31) for 5 resources
+        For colIndex = 27 To 31
+            resourceID = ws.Cells(4, colIndex).Value ' Row 4 = Resource ID
+            accessText = Trim(ws.Cells(currentRow, colIndex).Value) ' Access text on same row as AdGroupId
+
+            If accessMap.exists(accessText) Then
+                accessID = accessMap(accessText)
+                sql = "INSERT INTO resourcesroles VALUES (" & sequenceNumber & ", " & adGroupRoleId & ", " & resourceID & ", " & accessID & ", " & initialUser & ", " & currentTimestamp & ");"
+                output = output & sql & vbCrLf
+                Debug.Print sql
+                sequenceNumber = sequenceNumber + 1
+                outputCount = outputCount + 1
+            Else
+                Debug.Print "Invalid access value '" & accessText & "' at row " & currentRow & ", col " & colIndex
+            End If
+        Next colIndex
+
+        currentRow = currentRow + 1
+    Loop
+
+    ' Output SQL to new sheet
+    If outputCount = 0 Then
+        MsgBox "No SQL generated. Check your AdGroupRoleId and access values.", vbExclamation
+        Exit Sub
+    End If
+
+    Dim outSheet As Worksheet
+    Set outSheet = ThisWorkbook.Sheets.Add
+    outSheet.Name = "SQL_Output"
+
+    outSheet.Cells(1, 1).Value = "Generated SQL"
+
+    Dim lines() As String
+    lines = Split(output, vbCrLf)
+    Dim i As Long
+    For i = 0 To UBound(lines) - 1
+        If Trim(lines(i)) <> "" Then
+            outSheet.Cells(i + 2, 1).Value = lines(i)
+        End If
+    Next i
+
+    MsgBox outputCount & " SQL statements generated successfully!", vbInformation
+End Sub
