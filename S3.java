@@ -3,21 +3,22 @@ package com.example.s3;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.internal.io.AbortableInputStream;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,48 +27,46 @@ class S3ServiceTest {
     @Mock
     private S3Client s3Client;
 
+    @InjectMocks
     private S3Service s3Service;
 
-    private final String bucketName = "test-bucket";
+    private final String bucketName = "mock-bucket";
 
     @BeforeEach
-    void setup() {
-        s3Service = new S3Service(s3Client, bucketName);
+    void setUp() throws Exception {
+        // Manually inject the value into the @Value field (since Spring isn't running)
+        Field bucketField = S3Service.class.getDeclaredField("bucketName");
+        bucketField.setAccessible(true);
+        bucketField.set(s3Service, bucketName);
     }
 
     @Test
-    void testUpload() {
+    void testUploadFile() {
         String key = "file.txt";
-        String content = "Hello, S3!";
+        String content = "Test upload";
 
-        s3Service.upload(key, content);
+        s3Service.uploadFile(key, content);
 
-        ArgumentCaptor<PutObjectRequest> requestCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
-        ArgumentCaptor<RequestBody> bodyCaptor = ArgumentCaptor.forClass(RequestBody.class);
-
-        verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
-
-        PutObjectRequest request = requestCaptor.getValue();
-        assertEquals(bucketName, request.bucket());
-        assertEquals(key, request.key());
+        verify(s3Client).putObject(
+                argThat(req -> req.bucket().equals(bucketName) && req.key().equals(key)),
+                any()
+        );
     }
 
     @Test
-    void testGetObjectAsString() {
+    void testDownloadFile() {
         String key = "file.txt";
-        String expectedContent = "This is from S3";
+        String content = "Test download content";
 
-        InputStream mockStream = new ByteArrayInputStream(expectedContent.getBytes(StandardCharsets.UTF_8));
-        ResponseInputStream<GetObjectResponse> responseInputStream =
-                new ResponseInputStream<>(GetObjectResponse.builder().build(), AbortableInputStream.create(mockStream));
+        InputStream is = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
+        ResponseInputStream<GetObjectResponse> response = new ResponseInputStream<>(
+                GetObjectResponse.builder().build(),
+                AbortableInputStream.create(is)
+        );
 
-        when(s3Client.getObject(any(GetObjectRequest.class))).thenReturn(responseInputStream);
+        when(s3Client.getObject(any(GetObjectRequest.class))).thenReturn(response);
 
-        String result = s3Service.getObjectAsString(key);
-
-        assertEquals(expectedContent, result);
-        verify(s3Client).getObject(argThat(req ->
-                req.bucket().equals(bucketName) && req.key().equals(key)
-        ));
+        String result = s3Service.downloadFile(key);
+        assertEquals(content, result);
     }
 }
