@@ -1,0 +1,15 @@
+SELECT 
+    lead_cus.cus_idr AS lead_customer_id,
+    c.sbuname,
+    input_cus.cus_idr AS input_customer_id
+FROM 
+    appCustomer input_cus
+JOIN 
+    appCustomer lead_cus 
+    ON input_cus.grp_idr = lead_cus.grp_idr
+    AND lead_cus.cus_typ IN (1, 4)
+JOIN 
+    customer c 
+    ON lead_cus.cus_idr = c.cusid
+WHERE 
+    input_cus.cus_idr IN (<list_of_input_customer_ids>);
